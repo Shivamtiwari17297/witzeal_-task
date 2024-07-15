@@ -1,0 +1,45 @@
+---
+- name: Deploy and manage Tomcat application
+  hosts: localhost
+  become: yes
+  vars:
+    tomcat_service_name: tomcat
+    war_file_path: /opt/tomcat/webapps/Lab6A.war
+    tomcat_webapps_dir: /opt/tomcat/webapps
+
+  tasks:
+    - name: Check if the WAR file exists
+      stat:
+        path: "{{ war_file_path }}"
+      register: war_file_stat
+
+    - name: Deploy the WAR file if it has changed
+      copy:
+        src: "{{ war_file_path }}"
+        dest: "{{ tomcat_webapps_dir }}/Lab6A.war"
+        checksum: auto
+      register: copy_result
+
+    - name: Restart Tomcat if the WAR file has changed
+      service:
+        name: "{{ tomcat_service_name }}"
+        state: restarted
+      when: copy_result.changed
+
+    - name: Check if Tomcat is running
+      shell: pgrep -f tomcat
+      register: tomcat_running
+      ignore_errors: yes
+
+    - name: Print Tomcat running status
+      debug:
+        msg: "Tomcat is {{ 'running' if tomcat_running.rc == 0 else 'not running' }}"
+
+    - name: Print top 10 running processes
+      shell: ps -eo pid,comm,%mem,%cpu --sort=-%mem | head -n 11
+      register: top_processes
+
+    - name: Display top 10 running processes
+      debug:
+        msg: "{{ top_processes.stdout_lines }}"
+
