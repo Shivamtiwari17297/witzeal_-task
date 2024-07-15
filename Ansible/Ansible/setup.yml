@@ -1,0 +1,114 @@
+---
+- hosts: localhost
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - mysql-server
+        - openjdk-11-jdk
+        - memcached
+        - redis-server
+
+    - name: Download Tomcat
+      get_url:
+        url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
+        dest: /tmp/apache-tomcat-9.0.91.tar.gz
+
+    - name: Extract Tomcat
+      unarchive:
+        src: /tmp/apache-tomcat-9.0.91.tar.gz
+        dest: /opt/
+        remote_src: yes
+
+    - name: Create a symlink for Tomcat
+      file:
+        src: /opt/apache-tomcat-9.0.91
+        dest: /opt/tomcat
+        state: link
+
+    - name: Change permissions for Tomcat directory
+      file:
+        path: /opt/apache-tomcat-9.0.91
+        owner: root
+        group: root
+        mode: '0755'
+        recurse: yes
+
+    - name: Create Tomcat systemd service file
+      copy:
+        dest: /etc/systemd/system/tomcat.service
+        content: |
+          [Unit]
+          Description=Apache Tomcat Web Application Container
+          After=network.target
+
+          [Service]
+          Type=forking
+
+          Environment=JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+          Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid
+          Environment=CATALINA_HOME=/opt/tomcat
+          Environment=CATALINA_BASE=/opt/tomcat
+          Environment='CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC'
+          Environment='JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom'
+
+          ExecStart=/opt/tomcat/bin/startup.sh
+          ExecStop=/opt/tomcat/bin/shutdown.sh
+
+          User=root
+          Group=root
+          UMask=0007
+          RestartSec=10
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reload
+
+    - name: Start and enable Tomcat service
+      service:
+        name: tomcat
+        state: started
+        enabled: yes
+
+    - name: Start and enable MySQL service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Start and enable Memcached service
+      service:
+        name: memcached
+        state: started
+        enabled: yes
+
+    - name: Start and enable Redis service
+      service:
+        name: redis-server
+        state: started
+        enabled: yes
+
+    - name: Copy sample WAR file to Tomcat webapps
+      copy:
+        src: Lab6A.war
+        dest: /opt/tomcat/webapps/Lab6A.war
+        owner: root
+        group: root
+      notify: restart tomcat
+
+  handlers:
+    - name: restart tomcat
+      service:
+        name: tomcat
+        state: restarted
