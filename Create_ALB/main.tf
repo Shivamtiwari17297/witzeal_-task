@@ -115,3 +115,5 @@ resource "aws_lb_listener" "http" {
 resource "aws_lb_target_group_attachment" "main" {
   target_group_arn = aws_lb_target_group.main.arn
   target_id        = aws_instance.web.id
+  port             = 80
+}
