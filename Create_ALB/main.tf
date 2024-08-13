@@ -67,7 +67,7 @@ resource "aws_instance" "web" {
   ami           = "ami-092c6099fac6352ad"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.main_a.id
-  security_group_ids = [aws_security_group.instance_sg.id]
+  security_groups = [aws_security_group.instance_sg.id]
 
   tags = {
     Name = "WebInstance"
